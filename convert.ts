@@ -11,6 +11,7 @@ const result = await convert(
     standalone: true,
     "input-files": ["article1.docx"],
     "extract-media": ".",
+    "section-divs": true,
   },
   null,
   { "article1.docx": docx },
@@ -27,3 +28,4 @@ for (const [name, blob] of Object.entries<Blob>(result.mediaFiles)) {
 console.log(
   `wrote article1.html + ${Object.keys(result.mediaFiles).length} media files`,
 );
+//TODO: convert .png -> optimized .webp images. Pandoc can't natively. Use sharp
