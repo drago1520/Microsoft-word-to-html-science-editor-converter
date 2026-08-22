@@ -1,3 +1,4 @@
+//@ts-expect-error no types for this lib. Dw
 import { convert } from "pandoc-wasm";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
