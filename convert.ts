@@ -3,22 +3,26 @@ import { convert } from "pandoc-wasm";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import sharp from "sharp";
+import { wordStylesToCss } from "./utils/custom-styles-css";
 
-const OUT = "public";
+const OUT = "public", ARTICLE_PATH = 'article1.docx';
 
-const docx = new Blob([await readFile("article1.docx")]);
+const docxBytes = await readFile(ARTICLE_PATH);
+const docx = new Blob([docxBytes]);
 
 const result = await convert(
   {
     from: "docx+styles",
     to: "html5",
     standalone: true,
-    "input-files": ["article1.docx"],
+    "input-files": [ARTICLE_PATH],
     "extract-media": ".",
     "section-divs": true,
+    // Default HTML math is "plain", which silently dumps raw LaTeX ($$...$$) for anything it cannot fake with spans (fractions, matrices, \left|).
+    "html-math-method": { method: "mathml" },
   },
   null,
-  { "article1.docx": docx },
+  { INPUT_PATH: docx },
 );
 
 if (result.stderr) console.error(result.stderr);
@@ -48,6 +52,7 @@ const extraCss = `
     border: 1px solid #abababff;
     padding: 0.4em 0.6em;
   }
+${wordStylesToCss(docxBytes)}
 </style>`;
 
 /** @description Change all img src extentions --> .webp, because I transformed the images */
