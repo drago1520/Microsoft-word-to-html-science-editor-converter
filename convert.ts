@@ -1,11 +1,23 @@
+/** @usage bun run convert.ts --input="./article1.docx" */
 //@ts-expect-error no types for this lib. Dw
 import { convert } from "pandoc-wasm";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
+import { parseArgs } from "node:util";
 import sharp from "sharp";
 import { wordStylesToCss } from "./utils/custom-styles-css";
 
-const OUT = "public", ARTICLE_PATH = 'article1.docx';
+const { values } = parseArgs({
+  args: Bun.argv.slice(2),
+  options: {
+    input: { type: "string" },
+  },
+});
+
+if (!values.input) throw new Error("Required: --input=<path.docx>");
+const ARTICLE_PATH = values.input;
+const inputName = basename(ARTICLE_PATH);
+const OUT = join("public", basename(ARTICLE_PATH, extname(ARTICLE_PATH)));
 
 const docxBytes = await readFile(ARTICLE_PATH);
 const docx = new Blob([docxBytes]);
@@ -15,14 +27,15 @@ const result = await convert(
     from: "docx+styles",
     to: "html5",
     standalone: true,
-    "input-files": [ARTICLE_PATH],
+    "input-files": [inputName],
     "extract-media": ".",
     "section-divs": true,
     // Default HTML math is "plain", which silently dumps raw LaTeX ($$...$$) for anything it cannot fake with spans (fractions, matrices, \left|).
     "html-math-method": { method: "mathml" },
   },
   null,
-  { INPUT_PATH: docx },
+  // Key must match the name in input-files: it is the filename inside pandoc's virtual FS.
+  { [inputName]: docx },
 );
 
 if (result.stderr) console.error(result.stderr);
@@ -82,10 +95,11 @@ html = new HTMLRewriter()
   })
   .transform(html);
 
-await writeFile(join(OUT, "article1.html"), html);
+await mkdir(OUT, { recursive: true });
+await writeFile(join(OUT, "index.html"), html);
 
 console.log(
-  `wrote ${OUT}/article1.html + ${Object.keys(result.mediaFiles).length} webp images`,
+  `wrote ${OUT}/index.html + ${Object.keys(result.mediaFiles).length} webp images`,
 );
 //I can pass a reference .docx with all title, h1, h2, h3 etc. custom styled and pandoc will pick them up.
 //TODO: only medium problem is indentation on normal text. The .xml (.docx) contains the info for identation but kinda hard to parse. 
