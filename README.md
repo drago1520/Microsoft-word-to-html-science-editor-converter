@@ -1,4 +1,8 @@
-# ms-word-seo
+# Use cases
+
+I use this to convert my science magazine articles from Microsoft Word (my main editor) to HTML, so Google can index them and show my website in search.
+
+If you're a scientist writing articles, it minimal repo will come in handy. Just install Bun, point it to your word file and done.
 
 To install dependencies:
 
