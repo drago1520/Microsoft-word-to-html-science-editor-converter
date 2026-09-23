@@ -4,8 +4,7 @@ import { convert } from 'pandoc-wasm'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 import { parseArgs } from 'node:util'
-import sharp from 'sharp'
-import { wordStylesToCss } from './utils/custom-styles-css'
+import { wordCellBorders, wordStylesToCss } from './utils/custom-styles-css'
 
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
@@ -50,26 +49,32 @@ for (const [name, blob] of Object.entries<Blob>(result.mediaFiles)) {
   // Path stays relative to the html, so the src attributes keep working.
   const webp = join(dirname(name), basename(name, extname(name)) + '.webp')
   await mkdir(join(OUT, dirname(webp)), { recursive: true })
-  const info = await sharp(Buffer.from(await blob.arrayBuffer()))
-    .resize({ width: 1200, withoutEnlargement: true })
+  //prettier-ignore
+  const img = new Bun.Image(blob)
+    .resize(1200, undefined, { withoutEnlargement: true })
     .webp({ quality: 80 })
-    .toFile(join(OUT, webp))
-  sizes.set(webp, { width: info.width, height: info.height })
+  await img.write(join(OUT, webp))
+  sizes.set(webp, { width: img.width, height: img.height })
 }
 
-/** Pandoc's table model has no borders, so restore Word's Table Grid look. */
+/** Default grid; explicit Word cell borders override it below. */
 const extraCss = `
 <style>
-  table th,
-  table td {
-    border: 1px solid #abababff;
-    padding: 0.4em 0.6em;
-  }
 ${wordStylesToCss(docxBytes)}
 </style>`
 
 /** @description Change all img src extentions --> .webp, because I transformed the images */
+const cellBorders = wordCellBorders(docxBytes)
+const matchingCells = cellBorders.length === [...html.matchAll(/<t[dh]\b/g)].length
+let cellIndex = 0
 html = new HTMLRewriter()
+  .on('td, th', {
+    element(el) {
+      const border = cellBorders[cellIndex++]
+      if (matchingCells && border)
+        el.setAttribute('style', [el.getAttribute('style')?.replace(/;\s*$/, ''), border].filter(Boolean).join('; '))
+    }
+  })
   .on('head', {
     element(el) {
       el.append(extraCss, { html: true })

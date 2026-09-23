@@ -12,6 +12,8 @@ To run:
 bun run convert.ts --input="./article1.docx"
 ```
 
+*it's faster on Linux than Windows.
+
 Writes `public/article1/index.html` and images, using the DOCX filename as the folder name.
 
 Check the CLI with `bun run convert.test.ts`.
