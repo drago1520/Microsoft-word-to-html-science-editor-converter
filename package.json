@@ -4,7 +4,9 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "prettier": "^3.9.8"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -13,5 +15,8 @@
     "fflate": "^0.8.3",
     "pandoc-wasm": "^1.1.0",
     "sharp": "^0.35.3"
+  },
+  "scripts": {
+    "prepare": "husky"
   }
 }
