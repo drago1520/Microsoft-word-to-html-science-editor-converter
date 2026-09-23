@@ -7,8 +7,34 @@ function list(value: Bun.XML.Value | Bun.XML.Value[] | undefined): Bun.XML.Eleme
   return arr.filter((v): v is Bun.XML.Element => typeof v === 'object')
 }
 
+/** styleId -> its own w:tblBorders, walking w:basedOn when a style has none of its own. */
+function tableStyleBorders(
+  zip: ReturnType<typeof unzipSync>
+): (styleId: string | undefined) => Bun.XML.Element | undefined {
+  const file = zip['word/styles.xml']
+  const stylesById = new Map<string, Bun.XML.Element>()
+  if (file) {
+    const root = Bun.XML.parse(strFromU8(file))['w:styles'] as Bun.XML.Element
+    for (const style of list(root['w:style'])) {
+      const id = style['@w:styleId'] as string | undefined
+      if (id) stylesById.set(id, style)
+    }
+  }
+  return function resolve(styleId: string | undefined, seen = new Set<string>()): Bun.XML.Element | undefined {
+    if (!styleId || seen.has(styleId)) return undefined
+    seen.add(styleId)
+    const style = stylesById.get(styleId)
+    const borders = (style?.['w:tblPr'] as Bun.XML.Element | undefined)?.['w:tblBorders'] as Bun.XML.Element | undefined
+    return (
+      borders ?? resolve((style?.['w:basedOn'] as Bun.XML.Element | undefined)?.['@w:val'] as string | undefined, seen)
+    )
+  }
+}
+
 export function wordCellBorders(docxBytes: Uint8Array) {
-  const xml = strFromU8(unzipSync(docxBytes)['word/document.xml']!)
+  const zip = unzipSync(docxBytes)
+  const xml = strFromU8(zip['word/document.xml']!)
+  const resolveTableStyleBorders = tableStyleBorders(zip)
   const body = (Bun.XML.parse(xml)['w:document'] as Bun.XML.Element)['w:body'] as Bun.XML.Element
   const tables = list(body['w:tbl'])
   // ponytail: flat tables only; nested tables and vertical merges need structural mapping.
@@ -19,8 +45,11 @@ export function wordCellBorders(docxBytes: Uint8Array) {
   if (hasVMerge || hasNested) return []
 
   return tables.flatMap(table => {
-    const tableBorders = (table['w:tblPr'] as Bun.XML.Element | undefined)?.['w:tblBorders'] as
-      Bun.XML.Element | undefined
+    const tblPr = table['w:tblPr'] as Bun.XML.Element | undefined
+    // Explicit table borders override the named style's; only fall back to the style when none are set inline.
+    const tableBorders =
+      (tblPr?.['w:tblBorders'] as Bun.XML.Element | undefined) ??
+      resolveTableStyleBorders((tblPr?.['w:tblStyle'] as Bun.XML.Element | undefined)?.['@w:val'] as string | undefined)
     const rows = list(table['w:tr'])
     return rows.flatMap((row, r) => {
       const cells = list(row['w:tc'])

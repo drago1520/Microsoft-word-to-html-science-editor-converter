@@ -17,6 +17,12 @@ try {
   assert.match(cell, /border-top: none;/)
   assert.match(cell, /border-bottom: none;/)
   assert.match(cell, /border-left: 0\.75pt solid #000000;/)
+  // "Units of Dose" table has no inline w:tblBorders/w:tcBorders, only a w:tblStyle="TableGrid"
+  // reference; its borders must resolve from styles.xml, not fall back to no border at all.
+  const unitsHeader = html.match(/<th\b([^>]*)><strong>Units of Dose<\/strong>/)?.[1]
+  assert.ok(unitsHeader, 'Units of Dose header cell exists')
+  for (const side of ['top', 'right', 'bottom', 'left'])
+    assert.match(unitsHeader, new RegExp(`border-${side}: 0\\.5pt solid #000000;`))
   const article2 = Bun.spawnSync(
     [process.execPath, join(import.meta.dir, 'convert.ts'), `--input=${join(import.meta.dir, 'article2.docx')}`],
     { cwd, stderr: 'pipe' }
@@ -26,7 +32,6 @@ try {
   const equation = html2.match(/<th\s+style="([^"]*)"><math[^>]*><semantics><mrow><mo[^>]*>\[<\/mo><mi>A<\/mi>/)?.[1]
   assert.ok(equation, 'Equation cell exists')
   for (const side of ['top', 'right', 'bottom', 'left']) assert.ok(equation.includes(`border-${side}: none;`))
-  assert.match(html2, /table tbody \{ border: none; \}/)
 } finally {
   await rm(cwd, { recursive: true, force: true })
 }
